@@ -4,6 +4,7 @@ import android.nfc.NfcAdapter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,27 +13,64 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.apknfc.auth.AuthUiState
+import com.example.apknfc.auth.AuthViewModel
+import com.example.apknfc.auth.DeviceIdProvider
+import com.example.apknfc.auth.LoginScreen
+import com.example.apknfc.auth.PendingApprovalScreen
 
 class MainActivity : ComponentActivity() {
+
+    private val authViewModel: AuthViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val deviceId = DeviceIdProvider.getOrCreate(this)
         val nfcDisponivel = NfcAdapter.getDefaultAdapter(this) != null
         val nfcAtivado = NfcAdapter.getDefaultAdapter(this)?.isEnabled ?: false
 
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    TelaStatus(
-                        nfcDisponivel = nfcDisponivel,
-                        nfcAtivado = nfcAtivado,
-                        // Mesmo valor fixo usado em PresencaHceService por enquanto.
-                        // Troque os dois ao mesmo tempo quando ligar ao backend/login.
-                        userId = "USER-0001"
-                    )
+                    val uiState by authViewModel.state.collectAsState()
+
+                    when (val state = uiState) {
+                        is AuthUiState.LoggedOut -> LoginScreen(
+                            isLoading = false,
+                            errorMessage = null,
+                            onLoginClick = { user, pass ->
+                                authViewModel.login(user, pass, deviceId)
+                            }
+                        )
+
+                        is AuthUiState.Loading -> LoginScreen(
+                            isLoading = true,
+                            errorMessage = null,
+                            onLoginClick = { _, _ -> }
+                        )
+
+                        is AuthUiState.Error -> LoginScreen(
+                            isLoading = false,
+                            errorMessage = state.message,
+                            onLoginClick = { user, pass ->
+                                authViewModel.login(user, pass, deviceId)
+                            }
+                        )
+
+                        is AuthUiState.PendingApproval -> PendingApprovalScreen(code = state.code)
+
+                        is AuthUiState.LoggedIn -> TelaStatus(
+                            nfcDisponivel = nfcDisponivel,
+                            nfcAtivado = nfcAtivado,
+                            userId = state.userId
+                        )
+                    }
                 }
             }
         }

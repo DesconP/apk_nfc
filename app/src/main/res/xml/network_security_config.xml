@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Libera tráfego HTTP (sem criptografia) apenas para o IP do seu
+  backend de desenvolvimento. NUNCA use isso apontando para um
+  servidor de produção — lá o certo é HTTPS.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.0.10</domain>
+    </domain-config>
+</network-security-config>
